@@ -16,6 +16,7 @@
 
 ## Installation
 
+* Download the [plugin](https://github.com/iJacks1980/FanControl.CommanderPRO/releases/download/Latest/FanControl.CommanderPro.dll)
 * Place the file "FanControl.CommanderPro.dll" into the Plugins folder of Fan Control.
 	* Windows will probably block the file by default, simply right click and go to properties  then click the "Unblock this file" checkbox and press OK.
 * Restart Fan Control.
