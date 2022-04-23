@@ -84,7 +84,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -119,7 +119,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -148,7 +148,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -180,7 +180,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -207,7 +207,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -231,7 +231,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -272,7 +272,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -315,7 +315,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }

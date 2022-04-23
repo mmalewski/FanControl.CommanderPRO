@@ -8,19 +8,15 @@ namespace FanControl.CommanderPro
     {
         private CommanderPro CommanderPro;
 
-        public string Name => "Corsair Commander Pro";
+        public string Name => "Corsair Commander PRO";
 
         public void Close()
         {
-            System.IO.File.AppendAllText("trace.log", "Plugin.Close()" + Environment.NewLine);
-
             CommanderPro.Disconnect();
         }
 
         public void Initialize()
         {
-            System.IO.File.AppendAllText("trace.log", "Plugin.Initialize()" + Environment.NewLine);
-
             CommanderPro = new CommanderPro();
 
             CommanderPro.Connect();
@@ -28,8 +24,6 @@ namespace FanControl.CommanderPro
 
         public void Load(IPluginSensorsContainer _container)
         {
-            System.IO.File.AppendAllText("trace.log", "Plugin.Load()" + Environment.NewLine);
-
             List<FanSensor> _fanSensors = new List<FanSensor>();
             List<ControlSensor> _controlSensors = new List<ControlSensor>();
 
