@@ -8,11 +8,14 @@ namespace FanControl.CommanderPro
     {
         private CommanderPro CommanderPro;
 
-        public string Name => "Corsair Commander PRO";
+        public String Name => "Corsair Commander PRO";
 
         public void Close()
         {
-            CommanderPro.Disconnect();
+            if (CommanderPro != null)
+            {
+                CommanderPro.Disconnect();
+            }
         }
 
         public void Initialize()
@@ -24,21 +27,31 @@ namespace FanControl.CommanderPro
 
         public void Load(IPluginSensorsContainer _container)
         {
-            List<FanSensor> _fanSensors = new List<FanSensor>();
-            List<ControlSensor> _controlSensors = new List<ControlSensor>();
-
-            foreach (Int32 channel in CommanderPro.GetFanChannels())
+            if (CommanderPro != null)
             {
-                _fanSensors.Add(new FanSensor { CommanderProInstance = CommanderPro, Channel = channel });
-            }
+                List<FanSensor> _fanSensors = new List<FanSensor>();
+                List<TemperatureSensor> _temperatureSensor = new List<TemperatureSensor>();
+                List<ControlSensor> _controlSensors = new List<ControlSensor>();
 
-            foreach (Int32 channel in CommanderPro.GetFanChannels())
-            {
-                _controlSensors.Add(new ControlSensor { CommanderProInstance = CommanderPro, Channel = channel });
-            }
+                foreach (Int32 channel in CommanderPro.GetFanChannels())
+                {
+                    _fanSensors.Add(new FanSensor { CommanderInstance = CommanderPro, Channel = channel });
+                }
 
-            _container.FanSensors.AddRange(_fanSensors);
-            _container.ControlSensors.AddRange(_controlSensors);
+                foreach (Int32 channel in CommanderPro.GetFanChannels())
+                {
+                    _controlSensors.Add(new ControlSensor { CommanderInstance = CommanderPro, Channel = channel });
+                }
+
+                foreach (Int32 channel in CommanderPro.GetTemperatureChannels())
+                {
+                    _temperatureSensor.Add(new TemperatureSensor { CommanderInstance = CommanderPro, Channel = channel });
+                }
+
+                _container.FanSensors.AddRange(_fanSensors);
+                _container.TempSensors.AddRange(_temperatureSensor);
+                _container.ControlSensors.AddRange(_controlSensors);
+            }
         }
     }
 }

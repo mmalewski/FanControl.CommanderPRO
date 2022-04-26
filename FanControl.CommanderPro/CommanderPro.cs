@@ -3,21 +3,33 @@ using System.Collections.Generic;
 
 namespace FanControl.CommanderPro
 {
-    public class CommanderPro
+    public class CommanderPro : ICommander
     {
         #region Private objects
 
-        //private static HidSharp.HidDeviceLoader Commander_Loader = new HidSharp.HidDeviceLoader();
+        private const String ErrorLogFileName = "CommanderPRO.err.log";
 
-        private HidSharp.HidStream stream;
+#if DEBUG
+        private const String TraceLogFileName = "CommanderPRO.trc.log";
+#else
+        private const String TraceLogFileName = ""; //"CommanderPRO.trc.log";
+#endif
 
         private HidSharp.HidDevice device;
 
-        private Byte[] outbuf = new Byte[64];
+        private HidSharp.HidStream stream;
 
-        private Byte[] inbuf = new Byte[16];
+        private Byte[] outbuf = new Byte[CommanderProProtocolConstants.COMMAND_SIZE];
+
+        private Byte[] inbuf = new Byte[CommanderProProtocolConstants.RESPONSE_SIZE];
 
         private Boolean IsConnected = false;
+
+        #endregion
+
+        #region Properties
+
+        public DeviceType Type => DeviceType.Pro;
 
         #endregion
 
@@ -27,9 +39,13 @@ namespace FanControl.CommanderPro
         {
             if (IsConnected) return;
 
-            if (HidSharp.DeviceList.Local.TryGetHidDevice(out device, 0x1b1c, 0x0c10))
+            IsConnected = false;
+
+            try
             {
-                if (String.Equals(device.GetProductName(), "Commander PRO", StringComparison.InvariantCultureIgnoreCase))
+                HidSharp.DeviceList.Local.TryGetHidDevice(out device, 0x1b1c, 0x0c10);
+
+                if (device != null)
                 {
                     if (device.TryOpen(out stream))
                     {
@@ -40,13 +56,11 @@ namespace FanControl.CommanderPro
                         IsConnected = false;
                     }
                 }
-                else
-                {
-                    IsConnected = false;
-                }
             }
-            else
+            catch (Exception exception)
             {
+                System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
                 IsConnected = false;
             }
         }
@@ -69,7 +83,7 @@ namespace FanControl.CommanderPro
             {
                 ClearOutputBuffer();
 
-                outbuf[1] = CorsairLightingProtocolConstants.READ_FIRMWARE_VERSION;
+                outbuf[1] = CommanderProProtocolConstants.READ_FIRMWARE_VERSION;
 
                 try
                 {
@@ -81,10 +95,15 @@ namespace FanControl.CommanderPro
                         if (i > 2) { result = result + "." + inbuf[i]; }
                         else { result = result + inbuf[i]; }
                     }
+
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        System.IO.File.AppendAllText(TraceLogFileName, $"Commander PRO Firmware v{result}" + Environment.NewLine);
+                    }
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -99,7 +118,7 @@ namespace FanControl.CommanderPro
 
             if (IsConnected)
             {
-                String fanMask = ReadFanMask();
+                String fanMask = GetFanMask();
 
                 try
                 {
@@ -119,7 +138,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -128,7 +147,7 @@ namespace FanControl.CommanderPro
             return result;
         }
 
-        public Int32 GetFanSpeed(Int32 fan)
+        public Int32 GetFanSpeed(Int32 channel)
         {
             Int32 result = 0;
 
@@ -138,8 +157,8 @@ namespace FanControl.CommanderPro
 
                 try
                 {
-                    outbuf[1] = CorsairLightingProtocolConstants.READ_FAN_SPEED;
-                    outbuf[2] = (Byte)fan;
+                    outbuf[1] = CommanderProProtocolConstants.READ_FAN_SPEED;
+                    outbuf[2] = (Byte)channel;
 
                     stream.Write(outbuf);
                     stream.Read(inbuf);
@@ -148,7 +167,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -157,7 +176,7 @@ namespace FanControl.CommanderPro
             return result;
         }
 
-        public Int32 GetFanPower(Int32 fan)
+        public Int32 GetFanPower(Int32 channel)
         {
             Int32 result = 0;
 
@@ -167,8 +186,8 @@ namespace FanControl.CommanderPro
 
                 try
                 {
-                    outbuf[1] = CorsairLightingProtocolConstants.READ_FAN_POWER;
-                    outbuf[2] = (Byte)fan;
+                    outbuf[1] = CommanderProProtocolConstants.READ_FAN_POWER;
+                    outbuf[2] = (Byte)channel;
 
                     stream.Write(outbuf);
                     stream.Read(inbuf);
@@ -180,7 +199,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -189,7 +208,7 @@ namespace FanControl.CommanderPro
             return result;
         }
 
-        public void SetFanSpeed(Int32 fan, Int32 speed)
+        public void SetFanSpeed(Int32 channel, Int32 speed)
         {
             if (IsConnected)
             {
@@ -197,8 +216,8 @@ namespace FanControl.CommanderPro
 
                 try
                 {
-                    outbuf[1] = CorsairLightingProtocolConstants.WRITE_FAN_SPEED;
-                    outbuf[2] = (Byte)fan;
+                    outbuf[1] = CommanderProProtocolConstants.WRITE_FAN_SPEED;
+                    outbuf[2] = (Byte)channel;
                     outbuf[3] = (Byte)(speed >> 8);
                     outbuf[4] = (Byte)(speed & 0xff);
 
@@ -207,14 +226,14 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
             }
         }
 
-        public void SetFanPower(Int32 fan, Int32 power)
+        public void SetFanPower(Int32 channel, Int32 power)
         {
             if (IsConnected && power >= 0 && power <= 100)
             {
@@ -222,8 +241,8 @@ namespace FanControl.CommanderPro
 
                 try
                 {
-                    outbuf[1] = CorsairLightingProtocolConstants.WRITE_FAN_POWER;
-                    outbuf[2] = (Byte)fan;
+                    outbuf[1] = CommanderProProtocolConstants.WRITE_FAN_POWER;
+                    outbuf[2] = (Byte)channel;
                     outbuf[3] = (Byte)(power);
 
                     stream.Write(outbuf);
@@ -231,11 +250,76 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
             }
+        }
+
+        public List<Int32> GetTemperatureChannels()
+        {
+            List<Int32> result = new List<Int32>();
+
+            if (IsConnected)
+            {
+                String temperatureMask = GetTemperatureMask();
+
+                try
+                {
+                    for (Int32 j = 0; j < temperatureMask.Length; j++)
+                    {
+                        Char y = temperatureMask[j];
+
+                        switch (y)
+                        {
+                            case '1':
+                                result.Add(j);
+
+                                break;
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
+                    IsConnected = false;
+                }
+            }
+
+            return result;
+        }
+
+        public Int32 GetTemperature(Int32 channel)
+        {
+            Int32 result = 0;
+
+            if (IsConnected)
+            {
+                ClearOutputBuffer();
+
+                try
+                {
+                    ClearOutputBuffer();
+
+                    outbuf[1] = CommanderProProtocolConstants.READ_TEMPERATURE_VALUE;
+                    outbuf[2] = (Byte)channel;
+
+                    stream.Write(outbuf);
+                    stream.Read(inbuf);
+
+                    result = BitConverter.ToUInt16(inbuf, 1) / 100;
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
+                    IsConnected = false;
+                }
+            }
+
+            return result;
         }
 
         public Dictionary<Int32, Int32> GetFanSpeeds()
@@ -244,7 +328,7 @@ namespace FanControl.CommanderPro
 
             if (IsConnected)
             {
-                String fanMask = ReadFanMask();
+                String fanMask = GetFanMask();
 
                 try
                 {
@@ -258,7 +342,7 @@ namespace FanControl.CommanderPro
                             case '2':
                                 ClearOutputBuffer();
 
-                                outbuf[1] = CorsairLightingProtocolConstants.READ_FAN_SPEED;
+                                outbuf[1] = CommanderProProtocolConstants.READ_FAN_SPEED;
                                 outbuf[2] = (Byte)j;
 
                                 stream.Write(outbuf);
@@ -272,7 +356,51 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
+                    IsConnected = false;
+                }
+            }
+
+            return result;
+        }
+
+        public Dictionary<Int32, Int32> GetTemperatures()
+        {
+            Dictionary<Int32, Int32> result = new Dictionary<Int32, Int32>();
+
+            if (IsConnected)
+            {
+                String temperatureMask = GetTemperatureMask();
+
+                try
+                {
+                    for (Int32 j = 0; j < temperatureMask.Length; j++)
+                    {
+                        Char y = temperatureMask[j];
+
+                        switch (y)
+                        {
+                            case '1':
+                                ClearOutputBuffer();
+
+                                outbuf[1] = CommanderProProtocolConstants.READ_TEMPERATURE_VALUE;
+                                outbuf[2] = (Byte)j;
+
+                                stream.Write(outbuf);
+                                stream.Read(inbuf);
+
+                                Int32 i = BitConverter.ToUInt16(inbuf, 1) / 100;
+
+                                result.Add(j + 1, i);
+
+                                break;
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -293,7 +421,7 @@ namespace FanControl.CommanderPro
             }
         }
 
-        private String ReadFanMask()
+        private String GetFanMask()
         {
             String result = "";
 
@@ -303,7 +431,7 @@ namespace FanControl.CommanderPro
 
                 try
                 {
-                    outbuf[1] = CorsairLightingProtocolConstants.READ_FAN_MASK;
+                    outbuf[1] = CommanderProProtocolConstants.READ_FAN_MASK;
 
                     stream.Write(outbuf);
                     stream.Read(inbuf);
@@ -315,7 +443,7 @@ namespace FanControl.CommanderPro
                 }
                 catch (Exception exception)
                 {
-                    System.IO.File.AppendAllText("CommanderPRO.err.log", exception.ToString() + Environment.NewLine);
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
 
                     IsConnected = false;
                 }
@@ -324,6 +452,42 @@ namespace FanControl.CommanderPro
             if (result.Length != 6)
             {
                 result = "000000";
+            }
+
+            return result;
+        }
+
+        private String GetTemperatureMask()
+        {
+            String result = "";
+
+            if (IsConnected)
+            {
+                ClearOutputBuffer();
+
+                try
+                {
+                    outbuf[1] = CommanderProProtocolConstants.READ_TEMPERATURE_MASK;
+
+                    stream.Write(outbuf);
+                    stream.Read(inbuf);
+
+                    for (Int32 i = 2; i < 6; ++i)
+                    {
+                        result = result + inbuf[i].ToString();
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
+                    IsConnected = false;
+                }
+            }
+
+            if (result.Length != 4)
+            {
+                result = "0000";
             }
 
             return result;

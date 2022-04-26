@@ -3,7 +3,7 @@ using System;
 
 namespace FanControl.CommanderPro
 {
-    public class FanSensor : IPluginSensor
+    public class TemperatureSensor : IPluginSensor
     {
         public ICommander CommanderInstance { get; set; }
 
@@ -20,11 +20,11 @@ namespace FanControl.CommanderPro
                 switch (CommanderInstance.Type)
                 {
                     case DeviceType.Pro:
-                        result = $"Commander PRO Channel {Channel + 1}";
+                        result = $"Sensor {Channel + 1}";
 
                         break;
                     case DeviceType.Core:
-                        result = $"Commander CORE Channel {Channel + 1}";
+                        result = $"Sensor {Channel + 1}";
 
                         break;
                 }
@@ -39,7 +39,7 @@ namespace FanControl.CommanderPro
         {
             CommanderInstance.Connect();
 
-            Value = CommanderInstance.GetFanSpeed(Channel);
+            Value = CommanderInstance.GetTemperature(Channel);
         }
     }
 }

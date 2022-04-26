@@ -47,12 +47,17 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommanderCore.cs" />
+    <Compile Include="CommanderCorePlugin.cs" />
     <Compile Include="CommanderPro.cs" />
     <Compile Include="ControlSensor.cs" />
-    <Compile Include="CorsairLightingProtocolConstants.cs" />
+    <Compile Include="CommanderProProtocolConstants.cs" />
+    <Compile Include="DeviceType.cs" />
     <Compile Include="FanSensor.cs" />
+    <Compile Include="ICommander.cs" />
     <Compile Include="Plugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TemperatureSensor.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />

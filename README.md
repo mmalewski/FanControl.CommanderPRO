@@ -13,7 +13,6 @@
 ## Todo
 
 * Read temperature data from probes
-* Integrate with iCUE SDK to allow side by side opperation with iCUE and expand device compatability
 
 ## Installation
 
@@ -26,4 +25,3 @@
 
 * If Corsair iCUE is installed you will get random data at best, nothing at worst.  Sadly the way that the hardware works means things have to be one or the other :(  If you need iCUE for the RGB I can recommend [OpenRGB](https://openrgb.org/)
 * Temperature sensors not yet active.
-* Only works with the Commander PRO

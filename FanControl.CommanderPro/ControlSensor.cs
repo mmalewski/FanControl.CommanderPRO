@@ -5,35 +5,55 @@ namespace FanControl.CommanderPro
 {
     public class ControlSensor : IPluginControlSensor
     {
-        public CommanderPro CommanderProInstance { get; set; }
+        public ICommander CommanderInstance { get; set; }
 
         public Int32 Channel { get; set; }
 
         public String Id => Channel.ToString();
 
-        public String Name => $"Commander PRO Channel {Channel}";
+        public String Name
+        {
+            get
+            {
+                String result = null;
+
+                switch (CommanderInstance.Type)
+                {
+                    case DeviceType.Pro:
+                        result = $"Commander PRO Channel {Channel + 1}";
+
+                        break;
+                    case DeviceType.Core:
+                        result = $"Commander CORE Channel {Channel + 1}";
+
+                        break;
+                }
+
+                return result;
+            }
+        }
 
         public Single? Value { get; set; }
 
         public void Reset()
         {
-            CommanderProInstance.Connect();
+            CommanderInstance.Connect();
 
-            CommanderProInstance.SetFanPower(Channel, 50);
+            CommanderInstance.SetFanPower(Channel, 50);
         }
 
         public void Set(Single val)
         {
-            CommanderProInstance.Connect();
+            CommanderInstance.Connect();
 
-            CommanderProInstance.SetFanPower(Channel, Convert.ToInt32(val));
+            CommanderInstance.SetFanPower(Channel, Convert.ToInt32(val));
         }
 
         public void Update()
         {
-            CommanderProInstance.Connect();
+            CommanderInstance.Connect();
 
-            Value = CommanderProInstance.GetFanPower(Channel);
+            Value = CommanderInstance.GetFanPower(Channel);
         }
     }
 }

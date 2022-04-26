@@ -49,8 +49,10 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="CommanderCoreFanTests.cs" />
     <Compile Include="FanTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="TemperatureTests.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="packages.config" />
