@@ -6,7 +6,7 @@ namespace FanControl.CommanderPro
 {
     public class CommanderCorePlugin : IPlugin
     {
-        private CommanderCore CommanderCore;
+        private Core.CommanderCore CommanderCore;
 
         public String Name => "Corsair Commander CORE";
 
@@ -17,7 +17,7 @@ namespace FanControl.CommanderPro
 
         public void Initialize()
         {
-            CommanderCore = new CommanderCore();
+            CommanderCore = new Core.CommanderCore();
 
             CommanderCore.Connect();
         }

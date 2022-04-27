@@ -4,9 +4,9 @@ using System.Collections.Generic;
 
 namespace FanControl.CommanderPro
 {
-    public class Plugin : IPlugin
+    public class CommanderProPlugin : IPlugin
     {
-        private CommanderPro CommanderPro;
+        private Pro.CommanderPro CommanderPro;
 
         public String Name => "Corsair Commander PRO";
 
@@ -20,7 +20,7 @@ namespace FanControl.CommanderPro
 
         public void Initialize()
         {
-            CommanderPro = new CommanderPro();
+            CommanderPro = new Pro.CommanderPro();
 
             CommanderPro.Connect();
         }

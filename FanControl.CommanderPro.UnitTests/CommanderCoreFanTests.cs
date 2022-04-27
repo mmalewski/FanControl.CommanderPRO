@@ -8,12 +8,12 @@ namespace FanControl.CommanderPro.UnitTests
     [TestClass]
     public class CommanderCoreFanTests
     {
-        CommanderCore commander;
+        Core.CommanderCore commander;
 
         [TestInitialize]
         public void Init()
         {
-            commander = new CommanderCore();
+            commander = new Core.CommanderCore();
             commander.Connect();
         }
 

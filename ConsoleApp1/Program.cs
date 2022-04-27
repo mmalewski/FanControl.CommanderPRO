@@ -1,5 +1,5 @@
-﻿using FanControl.CommanderPro;
-using System;
+﻿using System;
+using System.Collections.Generic;
 
 namespace ConsoleApp1
 {
@@ -7,22 +7,27 @@ namespace ConsoleApp1
     {
         static void Main(string[] args)
         {
-            CommanderCore commander = new CommanderCore();
+            FanControl.CommanderPro.Core.CommanderCore commander = new FanControl.CommanderPro.Core.CommanderCore();
 
             commander.Connect();
 
-            String firmwareVersion = commander.GetFirmwareVersion();
+            while (!Console.KeyAvailable)
+            {
+                System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
 
-            //List<Int32> channels = commander.GetFanChannels();
+                Console.WriteLine($"{DateTime.UtcNow} - Getting fan data:");
 
-            Console.WriteLine($"Firmware version: {firmwareVersion}");
+                List<Int32> channels = commander.GetFanChannels();
 
-            //foreach (var item in channels)
-            //{
-            //    Console.WriteLine($"Fan connected on channel: {item}");
-            //}
+                foreach (var item in channels)
+                {
+                    Console.WriteLine($"Fan connected on channel: {item}");
+                }
 
-            Console.ReadLine();
+                sw.Stop();
+
+                Console.WriteLine($"Fan data took: {sw.ElapsedMilliseconds}ms");
+            }
         }
     }
 }

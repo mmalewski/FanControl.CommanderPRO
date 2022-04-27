@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
-namespace FanControl.CommanderPro
+namespace FanControl.CommanderPro.Core
 {
     public class CommanderCore : ICommander
     {
@@ -29,6 +29,8 @@ namespace FanControl.CommanderPro
         private Boolean IsConnected = false;
 
         private String FirmwareVersion;
+
+        private List<FanData> FanDetails;
 
         private Dictionary<Int32, Int32> FanSpeeds = new Dictionary<Int32, Int32>();
 
@@ -113,8 +115,15 @@ namespace FanControl.CommanderPro
         {
             String result = FirmwareVersion;
 
+            Int32 attempts = 0;
+
             while(String.IsNullOrWhiteSpace(result))
             {
+                if (attempts >= 10)
+                {
+                    break;
+                }
+
                 try
                 {
                     if (!_cancellationTokenSource.IsCancellationRequested)
@@ -124,6 +133,8 @@ namespace FanControl.CommanderPro
                         Task delay = Task.Delay(pause, _cancellationTokenSource.Token);
                         delay.Wait(_cancellationTokenSource.Token);
                     }
+
+                    attempts += 1;
                 }
                 catch (OperationCanceledException) { }
             }
@@ -199,7 +210,38 @@ namespace FanControl.CommanderPro
             //    }
             //}
 
-            return FanChannels;
+            Int32 attempts = 0;
+
+            while (FanDetails == null)
+            {
+                if (attempts >= 100)
+                {
+                    break;
+                }
+
+                try
+                {
+                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    {
+                        TimeSpan pause = new TimeSpan(0, 0, 0, 0, 100);
+
+                        Task delay = Task.Delay(pause, _cancellationTokenSource.Token);
+                        delay.Wait(_cancellationTokenSource.Token);
+                    }
+
+                    attempts += 1;
+                }
+                catch (OperationCanceledException) { }
+            }
+
+            if (FanDetails != null)
+            {
+                return FanDetails.Where(x => x.Type != 8 && x.Type != 0).Select(x => x.Channel).ToList();
+            }
+            else
+            {
+                return new List<Int32>();
+            }
         }
 
         public Int32 GetFanSpeed(Int32 channel)
@@ -296,25 +338,32 @@ namespace FanControl.CommanderPro
                     {
                         dataMatched = true;
 
-                        if (!FanChannels.Any())
+                        if (FanDetails == null)
                         {
-                            Int32 totalDevices = data[6];
-
-                            for (Int32 i = 0; i < totalDevices; i++)
-                            {
-                                //0 = AIO Pump, not a fan so ignore
-
-                                if (i > 0 && data[i + 7] == 0x07)
-                                {
-                                    FanChannels.Add(i);
-                                }
-                            }
+                            FanDetails = new List<FanData>();
                         }
+
+                        //Int32 totalDevices = data[6];
+
+                        //for (Int32 i = 0; i < totalDevices; i++)
+                        //{
+                        //    //0 = AIO Pump, not a fan so ignore
+
+                        //    if (i > 0 && data[i + 7] == 0x07)
+                        //    {
+                        //        FanChannels.Add(i);
+                        //    }
+                        //}
                     }
 
                     if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_SPEEDS))
                     {
                         dataMatched = true;
+
+                        if (FanDetails == null)
+                        {
+                            FanDetails = new List<FanData>();
+                        }
 
                         Int32 totalResults = data[6];
 
@@ -328,25 +377,19 @@ namespace FanControl.CommanderPro
                             Int32 speed = BitConverter.ToUInt16(data, dataOffset);
                             Int32 type = data[typeOffset];
 
-                            switch (type)
+                            if (FanDetails.Exists(x => x.Channel == i))
                             {
-                                case 2:
-                                    //LL Series fan
-
-                                    break;
+                                FanDetails.First(x => x.Channel == i).Speed = speed;
                             }
-
-                            if (type == 8)
+                            else
                             {
-                                //Ignore as AIO pump speed.
+                                FanDetails.Add(new FanData
+                                {
+                                    Channel = i,
+                                    Type = type,
+                                    Speed = speed
+                                });
                             }
-
-                            results.Add(i, BitConverter.ToUInt16(data, dataOffset));
-                        }
-
-                        if (results.Any())
-                        {
-
                         }
                     }
                 }
@@ -355,7 +398,7 @@ namespace FanControl.CommanderPro
                 {
                     if (!token.IsCancellationRequested)
                     {
-                        TimeSpan pause = new TimeSpan(0, 0, 0, 0, 273);
+                        TimeSpan pause = new TimeSpan(0, 0, 0, 0, 100);
 
                         Task delay = Task.Delay(pause, token);
                         delay.Wait(token);
@@ -364,11 +407,6 @@ namespace FanControl.CommanderPro
                 catch (OperationCanceledException) { }
             }
         }
-
-        //private void ClearOutputBuffer()
-        //{
-        //    outbuf = new Byte[CommanderCoreProtocolConstants.COMMAND_SIZE];
-        //}
 
         private Byte[] SendCommand(Byte[] command, Byte[] data = null)
         {
@@ -445,7 +483,7 @@ namespace FanControl.CommanderPro
             {
                 try
                 {
-                    stream.ReadTimeout = 5000;
+                    stream.ReadTimeout = 250;
                     stream.Read(result);
                 }
                 catch (Exception exception)

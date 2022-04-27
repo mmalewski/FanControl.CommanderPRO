@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace FanControl.CommanderPro
+namespace FanControl.CommanderPro.Pro
 {
     public class CommanderPro : ICommander
     {

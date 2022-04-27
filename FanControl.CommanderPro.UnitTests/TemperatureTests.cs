@@ -7,12 +7,12 @@ namespace FanControl.CommanderPro.UnitTests
     [TestClass]
     public class TemperatureTests
     {
-        CommanderPro commanderPro;
+        Pro.CommanderPro commanderPro;
 
         [TestInitialize]
         public void Init()
         {
-            commanderPro = new CommanderPro();
+            commanderPro = new Pro.CommanderPro();
             commanderPro.Connect();
         }
 
