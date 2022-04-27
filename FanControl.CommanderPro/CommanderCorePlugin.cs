@@ -27,6 +27,8 @@ namespace FanControl.CommanderPro
             List<FanSensor> _fanSensors = new List<FanSensor>();
             List<ControlSensor> _controlSensors = new List<ControlSensor>();
 
+            CommanderCore.GetFirmwareVersion();
+
             foreach (Int32 channel in CommanderCore.GetFanChannels())
             {
                 _fanSensors.Add(new FanSensor { CommanderInstance = CommanderCore, Channel = channel });

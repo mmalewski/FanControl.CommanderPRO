@@ -13,21 +13,28 @@ namespace ConsoleApp1
 
             while (!Console.KeyAvailable)
             {
-                System.Diagnostics.Stopwatch sw = System.Diagnostics.Stopwatch.StartNew();
-
-                Console.WriteLine($"{DateTime.UtcNow} - Getting fan data:");
+                Console.WriteLine($"Firmware: {commander.GetFirmwareVersion()}");
 
                 List<Int32> channels = commander.GetFanChannels();
 
-                foreach (var item in channels)
+                Console.WriteLine("Connected fans:");
+
+                foreach (Int32 channel in channels)
                 {
-                    Console.WriteLine($"Fan connected on channel: {item}");
+                    Int32 speed = commander.GetFanSpeed(channel);
+
+                    Console.WriteLine($"\tChannel {channel}: Speed: {speed}");
                 }
 
-                sw.Stop();
+                TimeSpan pause = new TimeSpan(0, 0, 0, 0, 1000);
 
-                Console.WriteLine($"Fan data took: {sw.ElapsedMilliseconds}ms");
+                System.Threading.Tasks.Task delay = System.Threading.Tasks.Task.Delay(pause);
+                delay.Wait();
             }
+
+            commander.Disconnect();
+
+            Console.ReadLine();
         }
     }
 }

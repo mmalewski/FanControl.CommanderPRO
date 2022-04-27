@@ -49,15 +49,16 @@
   <ItemGroup>
     <Compile Include="Core\CommanderCore.cs" />
     <Compile Include="CommanderCorePlugin.cs" />
+    <Compile Include="Core\Constants.cs" />
     <Compile Include="Pro\CommanderPro.cs" />
     <Compile Include="ControlSensor.cs" />
-    <Compile Include="CommanderProProtocolConstants.cs" />
     <Compile Include="DeviceType.cs" />
     <Compile Include="Core\FanData.cs" />
     <Compile Include="FanSensor.cs" />
     <Compile Include="ICommander.cs" />
     <Compile Include="CommanderProPlugin.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Pro\Constants.cs" />
     <Compile Include="TemperatureSensor.cs" />
   </ItemGroup>
   <ItemGroup>

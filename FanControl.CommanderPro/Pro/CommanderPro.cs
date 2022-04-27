@@ -19,9 +19,9 @@ namespace FanControl.CommanderPro.Pro
 
         private HidSharp.HidStream stream;
 
-        private Byte[] outbuf = new Byte[CommanderProProtocolConstants.COMMAND_SIZE];
+        private Byte[] outbuf = new Byte[Constants.COMMAND_SIZE];
 
-        private Byte[] inbuf = new Byte[CommanderProProtocolConstants.RESPONSE_SIZE];
+        private Byte[] inbuf = new Byte[Constants.RESPONSE_SIZE];
 
         private Boolean IsConnected = false;
 
@@ -83,7 +83,7 @@ namespace FanControl.CommanderPro.Pro
             {
                 ClearOutputBuffer();
 
-                outbuf[1] = CommanderProProtocolConstants.READ_FIRMWARE_VERSION;
+                outbuf[1] = Constants.READ_FIRMWARE_VERSION;
 
                 try
                 {
@@ -157,7 +157,7 @@ namespace FanControl.CommanderPro.Pro
 
                 try
                 {
-                    outbuf[1] = CommanderProProtocolConstants.READ_FAN_SPEED;
+                    outbuf[1] = Constants.READ_FAN_SPEED;
                     outbuf[2] = (Byte)channel;
 
                     stream.Write(outbuf);
@@ -186,7 +186,7 @@ namespace FanControl.CommanderPro.Pro
 
                 try
                 {
-                    outbuf[1] = CommanderProProtocolConstants.READ_FAN_POWER;
+                    outbuf[1] = Constants.READ_FAN_POWER;
                     outbuf[2] = (Byte)channel;
 
                     stream.Write(outbuf);
@@ -216,7 +216,7 @@ namespace FanControl.CommanderPro.Pro
 
                 try
                 {
-                    outbuf[1] = CommanderProProtocolConstants.WRITE_FAN_SPEED;
+                    outbuf[1] = Constants.WRITE_FAN_SPEED;
                     outbuf[2] = (Byte)channel;
                     outbuf[3] = (Byte)(speed >> 8);
                     outbuf[4] = (Byte)(speed & 0xff);
@@ -241,7 +241,7 @@ namespace FanControl.CommanderPro.Pro
 
                 try
                 {
-                    outbuf[1] = CommanderProProtocolConstants.WRITE_FAN_POWER;
+                    outbuf[1] = Constants.WRITE_FAN_POWER;
                     outbuf[2] = (Byte)channel;
                     outbuf[3] = (Byte)(power);
 
@@ -303,7 +303,7 @@ namespace FanControl.CommanderPro.Pro
                 {
                     ClearOutputBuffer();
 
-                    outbuf[1] = CommanderProProtocolConstants.READ_TEMPERATURE_VALUE;
+                    outbuf[1] = Constants.READ_TEMPERATURE_VALUE;
                     outbuf[2] = (Byte)channel;
 
                     stream.Write(outbuf);
@@ -342,7 +342,7 @@ namespace FanControl.CommanderPro.Pro
                             case '2':
                                 ClearOutputBuffer();
 
-                                outbuf[1] = CommanderProProtocolConstants.READ_FAN_SPEED;
+                                outbuf[1] = Constants.READ_FAN_SPEED;
                                 outbuf[2] = (Byte)j;
 
                                 stream.Write(outbuf);
@@ -384,7 +384,7 @@ namespace FanControl.CommanderPro.Pro
                             case '1':
                                 ClearOutputBuffer();
 
-                                outbuf[1] = CommanderProProtocolConstants.READ_TEMPERATURE_VALUE;
+                                outbuf[1] = Constants.READ_TEMPERATURE_VALUE;
                                 outbuf[2] = (Byte)j;
 
                                 stream.Write(outbuf);
@@ -431,7 +431,7 @@ namespace FanControl.CommanderPro.Pro
 
                 try
                 {
-                    outbuf[1] = CommanderProProtocolConstants.READ_FAN_MASK;
+                    outbuf[1] = Constants.READ_FAN_MASK;
 
                     stream.Write(outbuf);
                     stream.Read(inbuf);
@@ -467,7 +467,7 @@ namespace FanControl.CommanderPro.Pro
 
                 try
                 {
-                    outbuf[1] = CommanderProProtocolConstants.READ_TEMPERATURE_MASK;
+                    outbuf[1] = Constants.READ_TEMPERATURE_MASK;
 
                     stream.Write(outbuf);
                     stream.Read(inbuf);

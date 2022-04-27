@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace FanControl.CommanderPro.Core
 {
@@ -18,10 +16,6 @@ namespace FanControl.CommanderPro.Core
         private const String TraceLogFileName = "";
 #endif
 
-        private CancellationTokenSource _cancellationTokenSource;
-
-        private Task _backgroundTask;
-
         private HidSharp.HidDevice device;
 
         private HidSharp.HidStream stream;
@@ -30,23 +24,7 @@ namespace FanControl.CommanderPro.Core
 
         private String FirmwareVersion;
 
-        private List<FanData> FanDetails;
-
-        private Dictionary<Int32, Int32> FanSpeeds = new Dictionary<Int32, Int32>();
-
-        private Dictionary<Int32, Int32> Temperatures = new Dictionary<Int32, Int32>();
-
-        #endregion
-
-        #region Constructor
-
-        public CommanderCore()
-        {
-            _cancellationTokenSource = new CancellationTokenSource();
-            CancellationToken cancellation = _cancellationTokenSource.Token;
-
-            _backgroundTask = Task.Factory.StartNew(() => WorkerThread(cancellation), cancellation, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        }
+        private List<Int32> Channels = new List<Int32>();
 
         #endregion
 
@@ -76,9 +54,17 @@ namespace FanControl.CommanderPro.Core
                     {
                         IsConnected = true;
 
-                        //SendCommand(CommanderCoreProtocolConstants.COMMAND_WAKE);
-                        //SendCommand(CommanderCoreProtocolConstants.READ_FIRMWARE_VERSION);
-                        //SendCommand(CommanderCoreProtocolConstants.COMMAND_SET_MODE, CommanderCoreProtocolConstants.MODE_CONNECTED);
+                        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                        {
+                            System.IO.File.AppendAllText(TraceLogFileName, "Sending WAKE command" + Environment.NewLine);
+                        }
+
+                        Byte[] response = SendCommand(Constants.COMMAND_SLEEP);
+
+                        response = SendCommand(Constants.COMMAND_WAKE);
+
+                        //SendCommand(Constants.COMMAND_RESET);
+                        //SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_CONNECTED);
 
                         if (!String.IsNullOrWhiteSpace(TraceLogFileName))
                         {
@@ -101,9 +87,9 @@ namespace FanControl.CommanderPro.Core
 
         public void Disconnect()
         {
-            _cancellationTokenSource.Cancel();
-
             if (!IsConnected) return;
+
+            SendCommand(Constants.COMMAND_SLEEP);
 
             stream.Dispose();
             stream = null;
@@ -115,181 +101,146 @@ namespace FanControl.CommanderPro.Core
         {
             String result = FirmwareVersion;
 
-            Int32 attempts = 0;
-
-            while(String.IsNullOrWhiteSpace(result))
+            if (IsConnected)
             {
-                if (attempts >= 10)
-                {
-                    break;
-                }
-
                 try
                 {
-                    if (!_cancellationTokenSource.IsCancellationRequested)
-                    {
-                        TimeSpan pause = new TimeSpan(0, 0, 0, 0, 500);
+                    //SendCommand(Constants.COMMAND_WAKE);
+                    //SendCommand(Constants.COMMAND_RESET);
+                    Byte[] response = SendCommand(Constants.READ_FIRMWARE_VERSION);
 
-                        Task delay = Task.Delay(pause, _cancellationTokenSource.Token);
-                        delay.Wait(_cancellationTokenSource.Token);
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_FIRMWARE, 2))
+                    {
+                        result = $"{response[4]}.{response[5]}.{response[6]}";
                     }
 
-                    attempts += 1;
+                    if (result != null && !String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        System.IO.File.AppendAllText(TraceLogFileName, $"Commander CORE Firmware v{result}" + Environment.NewLine);
+                    }
                 }
-                catch (OperationCanceledException) { }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
+                    IsConnected = false;
+                }
+                finally
+                {
+                    //SendCommand(Constants.COMMAND_SLEEP);
+                }
             }
-
-            //if (IsConnected)
-            //{
-            //    try
-            //    {
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_WAKE);
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_RESET);
-            //        inbuf = SendCommand(CommanderCoreProtocolConstants.READ_FIRMWARE_VERSION, null, CommanderCoreProtocolConstants.DATA_TYPE_FIRMWARE);
-
-            //        result = $"{inbuf[4]}.{inbuf[5]}.{inbuf[6]}";
-
-            //        if (result != null && !String.IsNullOrWhiteSpace(TraceLogFileName))
-            //        {
-            //            System.IO.File.AppendAllText(TraceLogFileName, "Commander CORE Firmware v{result}" + Environment.NewLine);
-            //        }
-            //    }
-            //    catch (Exception exception)
-            //    {
-            //        System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
-
-            //        IsConnected = false;
-            //    }
-            //    finally
-            //    {
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_SLEEP);
-            //    }
-            //}
 
             return result;
         }
 
         public List<Int32> GetFanChannels()
         {
-            //if (!Channels.Any() && IsConnected)
-            //{
-            //    try
-            //    {
-            //        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
-            //        {
-            //            System.IO.File.AppendAllText(TraceLogFileName, $"Getting fan channels" + Environment.NewLine);
-            //        }
-
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_WAKE);
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_RESET);
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_SET_MODE, CommanderCoreProtocolConstants.MODE_CONNECTED);
-            //        inbuf = SendCommand(CommanderCoreProtocolConstants.COMMAND_READ, null, CommanderCoreProtocolConstants.DATA_TYPE_CONNECTED);
-
-            //        if (!Channels.Any())
-            //        {
-            //            Int32 totalDevices = inbuf[6];
-
-            //            for (Int32 i = 0; i < totalDevices; i++)
-            //            {
-            //                //0 = AIO Pump, not a fan so ignore
-
-            //                if (i > 0 && inbuf[i + 7] == 0x07)
-            //                {
-            //                    Channels.Add(i);
-            //                }
-            //            }
-            //        }
-            //    }
-            //    catch (Exception exception)
-            //    {
-            //        System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
-            //    }
-            //    finally
-            //    {
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_SLEEP);
-            //    }
-            //}
-
-            Int32 attempts = 0;
-
-            while (FanDetails == null)
+            if (!Channels.Any() && IsConnected)
             {
-                if (attempts >= 100)
-                {
-                    break;
-                }
-
                 try
                 {
-                    if (!_cancellationTokenSource.IsCancellationRequested)
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
                     {
-                        TimeSpan pause = new TimeSpan(0, 0, 0, 0, 100);
-
-                        Task delay = Task.Delay(pause, _cancellationTokenSource.Token);
-                        delay.Wait(_cancellationTokenSource.Token);
+                        System.IO.File.AppendAllText(TraceLogFileName, "Getting fan channels" + Environment.NewLine);
                     }
 
-                    attempts += 1;
+                    //SendCommand(Constants.COMMAND_WAKE);
+                    //SendCommand(Constants.COMMAND_RESET);
+                    SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_CONNECTED);
+                    Byte[] response = SendCommand(Constants.COMMAND_READ);
+
+                    //DATA_TYPE_HW_CONNECTED
+
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_HW_CONNECTED, 2))
+                    {
+                        Int32 totalDevices = response[6];
+
+                        for (Int32 i = 0; i < totalDevices; i++)
+                        {
+                            //0 = AIO Pump, not a fan so ignore
+
+                            if (i > 0 && response[i + 7] == 0x07)
+                            {
+                                Channels.Add(i);
+                            }
+                        }
+                    }
+
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_SW_CONNECTED))
+                    {
+                        Int32 totalDevices = response[6];
+
+                        for (Int32 i = 0; i < totalDevices; i++)
+                        {
+                            //0 = AIO Pump, not a fan so ignore
+
+                            if (i > 0 && response[i + 7] == 0x07)
+                            {
+                                Channels.Add(i);
+                            }
+                        }
+                    }
                 }
-                catch (OperationCanceledException) { }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+                }
+                finally
+                {
+                    //SendCommand(Constants.COMMAND_SLEEP);
+                }
             }
 
-            if (FanDetails != null)
-            {
-                return FanDetails.Where(x => x.Type != 8 && x.Type != 0).Select(x => x.Channel).ToList();
-            }
-            else
-            {
-                return new List<Int32>();
-            }
+            return Channels;
         }
 
         public Int32 GetFanSpeed(Int32 channel)
         {
             Int32 result = 0;
 
-            //if (IsConnected)
-            //{
-            //    try
-            //    {
-            //        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
-            //        {
-            //            System.IO.File.AppendAllText(TraceLogFileName, "Getting fan channel {channel} speed" + Environment.NewLine);
-            //        }
+            if (IsConnected)
+            {
+                try
+                {
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        System.IO.File.AppendAllText(TraceLogFileName, $"Getting fan channel {channel} speed" + Environment.NewLine);
+                    }
 
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_WAKE);
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_RESET);
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_SET_MODE, CommanderCoreProtocolConstants.MODE_GET_SPEEDS);
-            //        inbuf = SendCommand(CommanderCoreProtocolConstants.COMMAND_READ);
+                    //SendCommand(Constants.COMMAND_WAKE);
+                    SendCommand(Constants.COMMAND_RESET);
+                    SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_GET_SPEEDS);
+                    Byte[] response = SendCommand(Constants.COMMAND_READ);
 
-            //        for (Int32 i = 0; i < CommanderCoreProtocolConstants.DATA_TYPE_SPEEDS.Length; ++i)
-            //        {
-            //            if (inbuf[4 + i] != CommanderCoreProtocolConstants.DATA_TYPE_SPEEDS[i])
-            //            {
-            //                //result = GetFanSpeed(channel, attempts + 1);
-            //            }
-            //        }
+                    for (Int32 i = 0; i < Constants.DATA_TYPE_SPEEDS.Length; ++i)
+                    {
+                        if (response[4 + i] != Constants.DATA_TYPE_SPEEDS[i])
+                        {
+                            //result = GetFanSpeed(channel, attempts + 1);
+                        }
+                    }
 
-            //        Int32 totalResults = inbuf[6];
+                    Int32 totalResults = response[6];
 
-            //        for (Int32 i = 0; i < totalResults * 2; i++)
-            //        {
-            //            if (i != channel) continue;
+                    for (Int32 i = 0; i < totalResults * 2; i++)
+                    {
+                        if (i != channel) continue;
 
-            //            Int32 offset = 7 + i * 2;
+                        Int32 offset = 7 + i * 2;
 
-            //            result = BitConverter.ToUInt16(inbuf, offset);
-            //        }
-            //    }
-            //    catch (Exception exception)
-            //    {
-            //        System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
-            //    }
-            //    finally
-            //    {
-            //        SendCommand(CommanderCoreProtocolConstants.COMMAND_SLEEP);
-            //    }
-            //}
+                        result = BitConverter.ToUInt16(response, offset);
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+                }
+                finally
+                {
+                    //SendCommand(Constants.COMMAND_SLEEP);
+                }
+            }
 
             return result;
         }
@@ -317,104 +268,104 @@ namespace FanControl.CommanderPro.Core
 
         #region Private methods
 
-        private void WorkerThread(CancellationToken token)
-        {
-            while (!token.IsCancellationRequested)
-            {
-                if (IsConnected)
-                {
-                    Byte[] data = ReadData();
+        //private void WorkerThread(CancellationToken token)
+        //{
+        //    while (!token.IsCancellationRequested)
+        //    {
+        //        if (IsConnected)
+        //        {
+        //            Byte[] data = ReadData();
 
-                    Boolean dataMatched = false;
+        //            Boolean dataMatched = false;
 
-                    if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_FIRMWARE))
-                    {
-                        dataMatched = true;
+        //            if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_FIRMWARE))
+        //            {
+        //                dataMatched = true;
 
-                        FirmwareVersion = $"{data[4]}.{data[5]}.{data[6]}";
-                    }
+        //                FirmwareVersion = $"{data[4]}.{data[5]}.{data[6]}";
+        //            }
 
-                    if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_CONNECTED))
-                    {
-                        dataMatched = true;
+        //            if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_CONNECTED))
+        //            {
+        //                dataMatched = true;
 
-                        if (FanDetails == null)
-                        {
-                            FanDetails = new List<FanData>();
-                        }
+        //                if (FanDetails == null)
+        //                {
+        //                    FanDetails = new List<FanData>();
+        //                }
 
-                        //Int32 totalDevices = data[6];
+        //                //Int32 totalDevices = data[6];
 
-                        //for (Int32 i = 0; i < totalDevices; i++)
-                        //{
-                        //    //0 = AIO Pump, not a fan so ignore
+        //                //for (Int32 i = 0; i < totalDevices; i++)
+        //                //{
+        //                //    //0 = AIO Pump, not a fan so ignore
 
-                        //    if (i > 0 && data[i + 7] == 0x07)
-                        //    {
-                        //        FanChannels.Add(i);
-                        //    }
-                        //}
-                    }
+        //                //    if (i > 0 && data[i + 7] == 0x07)
+        //                //    {
+        //                //        FanChannels.Add(i);
+        //                //    }
+        //                //}
+        //            }
 
-                    if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_SPEEDS))
-                    {
-                        dataMatched = true;
+        //            if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_SPEEDS))
+        //            {
+        //                dataMatched = true;
 
-                        if (FanDetails == null)
-                        {
-                            FanDetails = new List<FanData>();
-                        }
+        //                if (FanDetails == null)
+        //                {
+        //                    FanDetails = new List<FanData>();
+        //                }
 
-                        Int32 totalResults = data[6];
+        //                Int32 totalResults = data[6];
 
-                        Dictionary<Int32, Int32> results = new Dictionary<Int32, Int32>();
+        //                Dictionary<Int32, Int32> results = new Dictionary<Int32, Int32>();
 
-                        for (Int32 i = 0; i < totalResults; i++)
-                        {
-                            Int32 dataOffset = 7 + i * 2;
-                            Int32 typeOffset = 7 + i * 2 + 1;
+        //                for (Int32 i = 0; i < totalResults; i++)
+        //                {
+        //                    Int32 dataOffset = 7 + i * 2;
+        //                    Int32 typeOffset = 7 + i * 2 + 1;
 
-                            Int32 speed = BitConverter.ToUInt16(data, dataOffset);
-                            Int32 type = data[typeOffset];
+        //                    Int32 speed = BitConverter.ToUInt16(data, dataOffset);
+        //                    Int32 type = data[typeOffset];
 
-                            if (FanDetails.Exists(x => x.Channel == i))
-                            {
-                                FanDetails.First(x => x.Channel == i).Speed = speed;
-                            }
-                            else
-                            {
-                                FanDetails.Add(new FanData
-                                {
-                                    Channel = i,
-                                    Type = type,
-                                    Speed = speed
-                                });
-                            }
-                        }
-                    }
-                }
+        //                    if (FanDetails.Exists(x => x.Channel == i))
+        //                    {
+        //                        FanDetails.First(x => x.Channel == i).Speed = speed;
+        //                    }
+        //                    else
+        //                    {
+        //                        FanDetails.Add(new FanData
+        //                        {
+        //                            Channel = i,
+        //                            Type = type,
+        //                            Speed = speed
+        //                        });
+        //                    }
+        //                }
+        //            }
+        //        }
 
-                try
-                {
-                    if (!token.IsCancellationRequested)
-                    {
-                        TimeSpan pause = new TimeSpan(0, 0, 0, 0, 100);
+        //        try
+        //        {
+        //            if (!token.IsCancellationRequested)
+        //            {
+        //                TimeSpan pause = new TimeSpan(0, 0, 0, 0, 100);
 
-                        Task delay = Task.Delay(pause, token);
-                        delay.Wait(token);
-                    }
-                }
-                catch (OperationCanceledException) { }
-            }
-        }
+        //                Task delay = Task.Delay(pause, token);
+        //                delay.Wait(token);
+        //            }
+        //        }
+        //        catch (OperationCanceledException) { }
+        //    }
+        //}
 
         private Byte[] SendCommand(Byte[] command, Byte[] data = null)
         {
-            Byte[] result = new Byte[CommanderCoreProtocolConstants.RESPONSE_SIZE];
+            Byte[] result = new Byte[Constants.RESPONSE_SIZE];
 
             try
             {
-                Byte[] request = new Byte[CommanderCoreProtocolConstants.COMMAND_SIZE];
+                Byte[] request = new Byte[Constants.COMMAND_SIZE];
 
                 request[1] = 0x08;
 
@@ -442,14 +393,8 @@ namespace FanControl.CommanderPro.Core
                     System.IO.File.AppendAllText(TraceLogFileName, $"Sending command data: {BitConverter.ToString(request)}" + Environment.NewLine);
                 }
 
-                if (stream.CanWrite)
-                {
-                    stream.Write(request);
-                }
-                else
-                {
-
-                }
+                stream.Write(request);
+                stream.Read(result);
 
                 if (!String.IsNullOrWhiteSpace(TraceLogFileName))
                 {
@@ -475,33 +420,34 @@ namespace FanControl.CommanderPro.Core
             return result;
         }
 
-        private Byte[] ReadData()
-        {
-            Byte[] result = new Byte[CommanderCoreProtocolConstants.RESPONSE_SIZE];
+        //private Byte[] ReadData()
+        //{
+        //    Byte[] result = new Byte[CommanderCoreProtocolConstants.RESPONSE_SIZE];
 
-            if (stream.CanRead)
-            {
-                try
-                {
-                    stream.ReadTimeout = 250;
-                    stream.Read(result);
-                }
-                catch (Exception exception)
-                {
+        //    if (stream.CanRead)
+        //    {
+        //        try
+        //        {
+        //            stream.ReadTimeout = 5000;
+        //            stream.Read(result);
+        //        }
+        //        catch (Exception exception)
+        //        {
+        //            SendCommand(CommanderCoreProtocolConstants.COMMAND_WAKE);
+        //            SendCommand(CommanderCoreProtocolConstants.COMMAND_RESET);
+        //        }
+        //    }
 
-                }
-            }
+        //    return result;
+        //}
 
-            return result;
-        }
-
-        private Boolean ChecksumMatches(Byte[] data, Byte[] checksum)
+        private Boolean ChecksumMatches(Byte[] data, Byte[] checksum, Int32 offset = 4)
         {
             Boolean result = true;
 
             for (Int32 i = 0; i < checksum.Length; ++i)
             {
-                if (data[4 + i] != checksum[i])
+                if (data[offset + i] != checksum[i])
                 {
                     result = false;
                 }
