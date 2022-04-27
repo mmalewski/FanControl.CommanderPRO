@@ -63,6 +63,7 @@ namespace FanControl.CommanderPro
         public static Byte[] MODE_CONNECTED = { 0x1a };
         public static Byte[] MODE_GET_SPEEDS = { 0x17 };
 
+        public static Byte[] DATA_TYPE_FIRMWARE = { 0x02, 0x00 };
         public static Byte[] DATA_TYPE_CONNECTED = { 0x09, 0x00 };
         public static Byte[] DATA_TYPE_SPEEDS = { 0x06, 0x00 };
 
