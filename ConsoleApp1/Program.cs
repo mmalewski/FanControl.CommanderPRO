@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 namespace ConsoleApp1
 {
@@ -11,24 +12,40 @@ namespace ConsoleApp1
 
             commander.Connect();
 
-            while (!Console.KeyAvailable)
+            Boolean exitRequested = false;
+
+            String firmware;
+
+            while (!exitRequested)
             {
-                Console.WriteLine($"Firmware: {commander.GetFirmwareVersion()}");
+                firmware = commander.GetFirmwareVersion();
 
-                List<Int32> channels = commander.GetFanChannels();
-
-                Console.WriteLine("Connected fans:");
-
-                foreach (Int32 channel in channels)
+                if (String.Equals(firmware, "0.0.0"))
                 {
-                    Int32 speed = commander.GetFanSpeed(channel);
+                    Console.WriteLine("Bad firmware data!");
+                }
+                else
+                {
+                    Console.WriteLine($"Firmware v{firmware}");
 
-                    Console.WriteLine($"\tChannel {channel}: Speed: {speed}");
+                    List<Int32> channels = commander.GetFanChannels();
+
+                    foreach (Int32 channel in channels)
+                    {
+                        Int32 speed = commander.GetFanSpeed(channel);
+
+                        Console.WriteLine($"\tFan on channel {channel} speed: {speed}");
+                    }
+                }
+
+                if (Console.KeyAvailable)
+                {
+                    exitRequested = true;
                 }
 
                 TimeSpan pause = new TimeSpan(0, 0, 0, 0, 1000);
 
-                System.Threading.Tasks.Task delay = System.Threading.Tasks.Task.Delay(pause);
+                Task delay = Task.Delay(pause);
                 delay.Wait();
             }
 

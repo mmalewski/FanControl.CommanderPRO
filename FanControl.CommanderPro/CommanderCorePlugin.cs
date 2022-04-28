@@ -6,17 +6,40 @@ namespace FanControl.CommanderPro
 {
     public class CommanderCorePlugin : IPlugin
     {
+        #region Private objects
+
+        private const String ErrorLogFileName = "CommanderCORE.err.log";
+
+#if DEBUG
+        private const String TraceLogFileName = "CommanderCORE.trc.log";
+#else
+        private const String TraceLogFileName = "";
+#endif
+
         private Core.CommanderCore CommanderCore;
+
+        #endregion
+
+        #region Public objects
 
         public String Name => "Corsair Commander CORE";
 
+        #endregion
+        
         public void Close()
         {
+            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+            {
+                System.IO.File.AppendAllText(TraceLogFileName, "Plugin closing" + Environment.NewLine);
+            }
+
             CommanderCore.Disconnect();
         }
 
         public void Initialize()
         {
+            System.IO.File.AppendAllText(TraceLogFileName, "Plugin initializing" + Environment.NewLine);
+
             CommanderCore = new Core.CommanderCore();
 
             CommanderCore.Connect();
@@ -24,6 +47,8 @@ namespace FanControl.CommanderPro
 
         public void Load(IPluginSensorsContainer _container)
         {
+            System.IO.File.AppendAllText(TraceLogFileName, "Plugin loading" + Environment.NewLine);
+
             List<FanSensor> _fanSensors = new List<FanSensor>();
             List<ControlSensor> _controlSensors = new List<ControlSensor>();
 

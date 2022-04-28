@@ -22,7 +22,7 @@ namespace FanControl.CommanderPro.Core
 
         private Boolean IsConnected = false;
 
-        private String FirmwareVersion;
+        private String FirmwareVersion = "0.0.0";
 
         private List<Int32> Channels = new List<Int32>();
 
@@ -38,37 +38,44 @@ namespace FanControl.CommanderPro.Core
 
         public void Connect()
         {
+            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+            {
+                System.IO.File.AppendAllText(TraceLogFileName, "Attempting to connect to Commander CORE" + Environment.NewLine);
+            }
+
             if (IsConnected) return;
 
             IsConnected = false;
 
             try
             {
-                FirmwareVersion = String.Empty;
+                FirmwareVersion = "0.0.0";
+                Channels.Clear();
 
                 HidSharp.DeviceList.Local.TryGetHidDevice(out device, 0x1b1c, 0x0c1c);
 
                 if (device != null)
                 {
-                    if (device.TryOpen(out stream))
+                    HidSharp.OpenConfiguration openConfiguration = new HidSharp.OpenConfiguration();
+
+                    openConfiguration.SetOption(HidSharp.OpenOption.Exclusive, true);
+                    openConfiguration.SetOption(HidSharp.OpenOption.Interruptible, true);
+
+                    var options = openConfiguration.GetOptionsList();
+
+                    if (device.TryOpen(openConfiguration, out stream))
                     {
+                        stream.InterruptRequested += Stream_InterruptRequested;
+
                         IsConnected = true;
 
-                        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
-                        {
-                            System.IO.File.AppendAllText(TraceLogFileName, "Sending WAKE command" + Environment.NewLine);
-                        }
-
-                        Byte[] response = SendCommand(Constants.COMMAND_SLEEP);
-
-                        response = SendCommand(Constants.COMMAND_WAKE);
-
+                        SendCommand(Constants.COMMAND_WAKE);
                         //SendCommand(Constants.COMMAND_RESET);
                         //SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_CONNECTED);
 
                         if (!String.IsNullOrWhiteSpace(TraceLogFileName))
                         {
-                            System.IO.File.AppendAllText(TraceLogFileName, $"Found device: {device.GetProductName()}" + Environment.NewLine);
+                            System.IO.File.AppendAllText(TraceLogFileName, $"Connected to device: {device.GetProductName()}" + Environment.NewLine);
                         }
                     }
                     else
@@ -89,6 +96,11 @@ namespace FanControl.CommanderPro.Core
         {
             if (!IsConnected) return;
 
+            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+            {
+                System.IO.File.AppendAllText(TraceLogFileName, "Disconnecting from Commander CORE" + Environment.NewLine);
+            }
+
             SendCommand(Constants.COMMAND_SLEEP);
 
             stream.Dispose();
@@ -99,10 +111,18 @@ namespace FanControl.CommanderPro.Core
 
         public String GetFirmwareVersion()
         {
-            String result = FirmwareVersion;
-
-            if (IsConnected)
+            if (!IsConnected)
             {
+                Connect();
+            }
+
+            if (IsConnected && String.Equals(FirmwareVersion, "0.0.0", StringComparison.InvariantCultureIgnoreCase))
+            {
+                if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                {
+                    System.IO.File.AppendAllText(TraceLogFileName, "Attempting to get Commander CORE firmware version" + Environment.NewLine);
+                }
+
                 try
                 {
                     //SendCommand(Constants.COMMAND_WAKE);
@@ -111,13 +131,18 @@ namespace FanControl.CommanderPro.Core
 
                     if (ChecksumMatches(response, Constants.DATA_TYPE_FIRMWARE, 2))
                     {
-                        result = $"{response[4]}.{response[5]}.{response[6]}";
-                    }
+                        FirmwareVersion = $"{response[4]}.{response[5]}.{response[6]}";
 
-                    if (result != null && !String.IsNullOrWhiteSpace(TraceLogFileName))
-                    {
-                        System.IO.File.AppendAllText(TraceLogFileName, $"Commander CORE Firmware v{result}" + Environment.NewLine);
+                        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                        {
+                            System.IO.File.AppendAllText(TraceLogFileName, $"Commander CORE Firmware v{FirmwareVersion}" + Environment.NewLine);
+                        }
                     }
+                    else
+                    {
+                        Disconnect();
+                    }
+                    
                 }
                 catch (Exception exception)
                 {
@@ -131,12 +156,17 @@ namespace FanControl.CommanderPro.Core
                 }
             }
 
-            return result;
+            return FirmwareVersion;
         }
 
         public List<Int32> GetFanChannels()
         {
-            if (!Channels.Any() && IsConnected)
+            if (!IsConnected)
+            {
+                Connect();
+            }
+
+            if (IsConnected && !Channels.Any())
             {
                 try
                 {
@@ -150,9 +180,7 @@ namespace FanControl.CommanderPro.Core
                     SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_CONNECTED);
                     Byte[] response = SendCommand(Constants.COMMAND_READ);
 
-                    //DATA_TYPE_HW_CONNECTED
-
-                    if (ChecksumMatches(response, Constants.DATA_TYPE_HW_CONNECTED, 2))
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_SW_CONNECTED))
                     {
                         Int32 totalDevices = response[6];
 
@@ -167,18 +195,11 @@ namespace FanControl.CommanderPro.Core
                         }
                     }
 
-                    if (ChecksumMatches(response, Constants.DATA_TYPE_SW_CONNECTED))
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
                     {
-                        Int32 totalDevices = response[6];
-
-                        for (Int32 i = 0; i < totalDevices; i++)
+                        foreach (Int32 channel in Channels)
                         {
-                            //0 = AIO Pump, not a fan so ignore
-
-                            if (i > 0 && response[i + 7] == 0x07)
-                            {
-                                Channels.Add(i);
-                            }
+                            System.IO.File.AppendAllText(TraceLogFileName, $"\tFound fan on channel {channel}" + Environment.NewLine);
                         }
                     }
                 }
@@ -199,6 +220,11 @@ namespace FanControl.CommanderPro.Core
         {
             Int32 result = 0;
 
+            if (!IsConnected)
+            {
+                Connect();
+            }
+
             if (IsConnected)
             {
                 try
@@ -213,23 +239,23 @@ namespace FanControl.CommanderPro.Core
                     SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_GET_SPEEDS);
                     Byte[] response = SendCommand(Constants.COMMAND_READ);
 
-                    for (Int32 i = 0; i < Constants.DATA_TYPE_SPEEDS.Length; ++i)
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_SPEEDS))
                     {
-                        if (response[4 + i] != Constants.DATA_TYPE_SPEEDS[i])
+                        Int32 totalResults = response[6];
+
+                        for (Int32 i = 0; i < totalResults * 2; i++)
                         {
-                            //result = GetFanSpeed(channel, attempts + 1);
+                            if (i != channel) continue;
+
+                            Int32 offset = 7 + i * 2;
+
+                            result = BitConverter.ToUInt16(response, offset);
+
+                            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                            {
+                                System.IO.File.AppendAllText(TraceLogFileName, $"\tFan channel {channel} speed: {result}" + Environment.NewLine);
+                            }
                         }
-                    }
-
-                    Int32 totalResults = response[6];
-
-                    for (Int32 i = 0; i < totalResults * 2; i++)
-                    {
-                        if (i != channel) continue;
-
-                        Int32 offset = 7 + i * 2;
-
-                        result = BitConverter.ToUInt16(response, offset);
                     }
                 }
                 catch (Exception exception)
@@ -268,97 +294,6 @@ namespace FanControl.CommanderPro.Core
 
         #region Private methods
 
-        //private void WorkerThread(CancellationToken token)
-        //{
-        //    while (!token.IsCancellationRequested)
-        //    {
-        //        if (IsConnected)
-        //        {
-        //            Byte[] data = ReadData();
-
-        //            Boolean dataMatched = false;
-
-        //            if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_FIRMWARE))
-        //            {
-        //                dataMatched = true;
-
-        //                FirmwareVersion = $"{data[4]}.{data[5]}.{data[6]}";
-        //            }
-
-        //            if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_CONNECTED))
-        //            {
-        //                dataMatched = true;
-
-        //                if (FanDetails == null)
-        //                {
-        //                    FanDetails = new List<FanData>();
-        //                }
-
-        //                //Int32 totalDevices = data[6];
-
-        //                //for (Int32 i = 0; i < totalDevices; i++)
-        //                //{
-        //                //    //0 = AIO Pump, not a fan so ignore
-
-        //                //    if (i > 0 && data[i + 7] == 0x07)
-        //                //    {
-        //                //        FanChannels.Add(i);
-        //                //    }
-        //                //}
-        //            }
-
-        //            if (!dataMatched && ChecksumMatches(data, CommanderCoreProtocolConstants.DATA_TYPE_SPEEDS))
-        //            {
-        //                dataMatched = true;
-
-        //                if (FanDetails == null)
-        //                {
-        //                    FanDetails = new List<FanData>();
-        //                }
-
-        //                Int32 totalResults = data[6];
-
-        //                Dictionary<Int32, Int32> results = new Dictionary<Int32, Int32>();
-
-        //                for (Int32 i = 0; i < totalResults; i++)
-        //                {
-        //                    Int32 dataOffset = 7 + i * 2;
-        //                    Int32 typeOffset = 7 + i * 2 + 1;
-
-        //                    Int32 speed = BitConverter.ToUInt16(data, dataOffset);
-        //                    Int32 type = data[typeOffset];
-
-        //                    if (FanDetails.Exists(x => x.Channel == i))
-        //                    {
-        //                        FanDetails.First(x => x.Channel == i).Speed = speed;
-        //                    }
-        //                    else
-        //                    {
-        //                        FanDetails.Add(new FanData
-        //                        {
-        //                            Channel = i,
-        //                            Type = type,
-        //                            Speed = speed
-        //                        });
-        //                    }
-        //                }
-        //            }
-        //        }
-
-        //        try
-        //        {
-        //            if (!token.IsCancellationRequested)
-        //            {
-        //                TimeSpan pause = new TimeSpan(0, 0, 0, 0, 100);
-
-        //                Task delay = Task.Delay(pause, token);
-        //                delay.Wait(token);
-        //            }
-        //        }
-        //        catch (OperationCanceledException) { }
-        //    }
-        //}
-
         private Byte[] SendCommand(Byte[] command, Byte[] data = null)
         {
             Byte[] result = new Byte[Constants.RESPONSE_SIZE];
@@ -388,29 +323,8 @@ namespace FanControl.CommanderPro.Core
                     }
                 }
 
-                if (!String.IsNullOrWhiteSpace(TraceLogFileName))
-                {
-                    System.IO.File.AppendAllText(TraceLogFileName, $"Sending command data: {BitConverter.ToString(request)}" + Environment.NewLine);
-                }
-
                 stream.Write(request);
                 stream.Read(result);
-
-                if (!String.IsNullOrWhiteSpace(TraceLogFileName))
-                {
-                    System.IO.File.AppendAllText(TraceLogFileName, $"Received data: {BitConverter.ToString(result)}" + Environment.NewLine);
-                }
-            }
-            catch (System.IO.IOException exception)
-            {
-                if (String.Equals("Can't write to this device.", exception.Message, StringComparison.InvariantCultureIgnoreCase))
-                {
-                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
-                }
-                else
-                {
-                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
-                }
             }
             catch (Exception exception)
             {
@@ -419,27 +333,6 @@ namespace FanControl.CommanderPro.Core
 
             return result;
         }
-
-        //private Byte[] ReadData()
-        //{
-        //    Byte[] result = new Byte[CommanderCoreProtocolConstants.RESPONSE_SIZE];
-
-        //    if (stream.CanRead)
-        //    {
-        //        try
-        //        {
-        //            stream.ReadTimeout = 5000;
-        //            stream.Read(result);
-        //        }
-        //        catch (Exception exception)
-        //        {
-        //            SendCommand(CommanderCoreProtocolConstants.COMMAND_WAKE);
-        //            SendCommand(CommanderCoreProtocolConstants.COMMAND_RESET);
-        //        }
-        //    }
-
-        //    return result;
-        //}
 
         private Boolean ChecksumMatches(Byte[] data, Byte[] checksum, Int32 offset = 4)
         {
@@ -454,6 +347,16 @@ namespace FanControl.CommanderPro.Core
             }
 
             return result;
+        }
+
+        private void Stream_InterruptRequested(object sender, EventArgs e)
+        {
+            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+            {
+                System.IO.File.AppendAllText(TraceLogFileName, "Other process wants to access device" + Environment.NewLine);
+            }
+
+            throw new NotImplementedException();
         }
 
         #endregion
