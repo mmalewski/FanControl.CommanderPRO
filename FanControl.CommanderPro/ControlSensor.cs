@@ -24,7 +24,7 @@ namespace FanControl.CommanderPro
 
                         break;
                     case DeviceType.Core:
-                        result = $"Commander CORE Channel {Channel + 1}";
+                        result = $"Commander CORE Channel {Channel}";
 
                         break;
                 }

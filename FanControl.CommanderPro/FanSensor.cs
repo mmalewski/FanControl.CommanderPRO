@@ -24,7 +24,14 @@ namespace FanControl.CommanderPro
 
                         break;
                     case DeviceType.Core:
-                        result = $"Commander CORE Channel {Channel}";
+                        if (Channel == 0)
+                        {
+                            result = "Commander CORE AIO Pump";
+                        }
+                        else
+                        {
+                            result = $"Commander CORE Channel {Channel}";
+                        }
 
                         break;
                 }

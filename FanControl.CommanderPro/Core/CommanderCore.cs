@@ -24,7 +24,9 @@ namespace FanControl.CommanderPro.Core
 
         private String FirmwareVersion = "0.0.0";
 
-        private List<Int32> Channels = new List<Int32>();
+        private List<Int32> FanChannels = new List<Int32>();
+
+        private List<Int32> TemperatureChannels = new List<Int32>();
 
         #endregion
 
@@ -38,27 +40,38 @@ namespace FanControl.CommanderPro.Core
 
         public void Connect()
         {
+            if (IsConnected) return;
+
             if (!String.IsNullOrWhiteSpace(TraceLogFileName))
             {
-                System.IO.File.AppendAllText(TraceLogFileName, "Attempting to connect to Commander CORE" + Environment.NewLine);
+                System.IO.File.AppendAllText(TraceLogFileName, "Looking for a Commander CORE family device" + Environment.NewLine);
             }
-
-            if (IsConnected) return;
 
             IsConnected = false;
 
             try
             {
                 FirmwareVersion = "0.0.0";
-                Channels.Clear();
+                FanChannels.Clear();
+                TemperatureChannels.Clear();
 
-                HidSharp.DeviceList.Local.TryGetHidDevice(out device, 0x1b1c, 0x0c1c);
+                if (!ConnectToCommanderCore())
+                {
+                    ConnectToCommanderCoreXt();
+                }
 
                 if (device != null)
                 {
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        System.IO.File.AppendAllText(TraceLogFileName, $"Found device: {device.GetProductName()}" + Environment.NewLine);
+                    }
+
                     HidSharp.OpenConfiguration openConfiguration = new HidSharp.OpenConfiguration();
 
                     openConfiguration.SetOption(HidSharp.OpenOption.Exclusive, true);
+                    //openConfiguration.SetOption(HidSharp.OpenOption.Priority, HidSharp.OpenPriority.VeryHigh);
+                    openConfiguration.SetOption(HidSharp.OpenOption.Transient, true);
                     openConfiguration.SetOption(HidSharp.OpenOption.Interruptible, true);
 
                     var options = openConfiguration.GetOptionsList();
@@ -73,9 +86,14 @@ namespace FanControl.CommanderPro.Core
                         //SendCommand(Constants.COMMAND_RESET);
                         //SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_CONNECTED);
 
-                        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                        if (IsConnected)
                         {
-                            System.IO.File.AppendAllText(TraceLogFileName, $"Connected to device: {device.GetProductName()}" + Environment.NewLine);
+                            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                            {
+                                System.IO.File.AppendAllText(TraceLogFileName, $"Connected to device: {device.GetProductName()}" + Environment.NewLine);
+                            }
+
+                            GetFirmwareVersion();
                         }
                     }
                     else
@@ -101,10 +119,12 @@ namespace FanControl.CommanderPro.Core
                 System.IO.File.AppendAllText(TraceLogFileName, "Disconnecting from Commander CORE" + Environment.NewLine);
             }
 
-            SendCommand(Constants.COMMAND_SLEEP);
+            SendCommand(Constants.COMMAND_RESET, null, false);
+            SendCommand(Constants.COMMAND_SLEEP, null, false);
 
             stream.Dispose();
             stream = null;
+            device = null;
 
             IsConnected = false;
         }
@@ -140,6 +160,11 @@ namespace FanControl.CommanderPro.Core
                     }
                     else
                     {
+                        if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                        {
+                            System.IO.File.AppendAllText(TraceLogFileName, $"Bad firmware version v{FirmwareVersion}" + Environment.NewLine);
+                        }
+
                         Disconnect();
                     }
                     
@@ -166,7 +191,7 @@ namespace FanControl.CommanderPro.Core
                 Connect();
             }
 
-            if (IsConnected && !Channels.Any())
+            if (IsConnected && !FanChannels.Any())
             {
                 try
                 {
@@ -187,17 +212,16 @@ namespace FanControl.CommanderPro.Core
                         for (Int32 i = 0; i < totalDevices; i++)
                         {
                             //0 = AIO Pump, not a fan so ignore
-
-                            if (i > 0 && response[i + 7] == 0x07)
+                            if (response[i + 7] == 0x07)
                             {
-                                Channels.Add(i);
+                                FanChannels.Add(i);
                             }
                         }
                     }
 
                     if (!String.IsNullOrWhiteSpace(TraceLogFileName))
                     {
-                        foreach (Int32 channel in Channels)
+                        foreach (Int32 channel in FanChannels)
                         {
                             System.IO.File.AppendAllText(TraceLogFileName, $"\tFound fan on channel {channel}" + Environment.NewLine);
                         }
@@ -213,7 +237,7 @@ namespace FanControl.CommanderPro.Core
                 }
             }
 
-            return Channels;
+            return FanChannels;
         }
 
         public Int32 GetFanSpeed(Int32 channel)
@@ -283,9 +307,117 @@ namespace FanControl.CommanderPro.Core
 
         }
 
-        public Int32 GetTemperature(Int32 channel)
+        public List<Int32> GetTemperatureChannels()
         {
-            Int32 result = 0;
+            if (!IsConnected)
+            {
+                Connect();
+            }
+
+            if (IsConnected && !TemperatureChannels.Any())
+            {
+                try
+                {
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        System.IO.File.AppendAllText(TraceLogFileName, "Getting fan channels" + Environment.NewLine);
+                    }
+
+                    //SendCommand(Constants.COMMAND_WAKE);
+                    SendCommand(Constants.COMMAND_RESET);
+                    SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_GET_TEMPS);
+                    Byte[] response = SendCommand(Constants.COMMAND_READ);
+
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_TEMPS))
+                    {
+                        Int32 totalResults = response[6];
+
+                        for (Int32 i = 0; i < totalResults; i++)
+                        {
+                            Int32 offset = 7 + i * 3;
+
+                            if (response[offset] == 0x00)
+                            {
+                                TemperatureChannels.Add(i);
+                            }
+                        }
+                    }
+
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        foreach (Int32 channel in TemperatureChannels)
+                        {
+                            System.IO.File.AppendAllText(TraceLogFileName, $"\tFound temperature probe on channel {channel}" + Environment.NewLine);
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+                }
+                finally
+                {
+                    //SendCommand(Constants.COMMAND_SLEEP);
+                }
+            }
+
+            return TemperatureChannels;
+        }
+
+        public Single GetTemperature(Int32 channel)
+        {
+            Single result = 0;
+
+            if (!IsConnected)
+            {
+                Connect();
+            }
+
+            if (IsConnected)
+            {
+                try
+                {
+                    if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                    {
+                        System.IO.File.AppendAllText(TraceLogFileName, $"Getting temperature from channel {channel}" + Environment.NewLine);
+                    }
+
+                    //SendCommand(Constants.COMMAND_WAKE);
+                    SendCommand(Constants.COMMAND_RESET);
+                    SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_GET_TEMPS);
+                    Byte[] response = SendCommand(Constants.COMMAND_READ);
+
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_TEMPS))
+                    {
+                        Int32 totalResults = response[6];
+
+                        for (Int32 i = 0; i < totalResults; i++)
+                        {
+                            if (i != channel) continue;
+
+                            Int32 offset = 7 + i * 3;
+
+                            if (response[offset] == 0x00)
+                            {
+                                result = Convert.ToSingle(BitConverter.ToUInt16(response, offset + 1) / 10.0);
+
+                                if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+                                {
+                                    System.IO.File.AppendAllText(TraceLogFileName, $"\tTemperature channel {channel}: {result}" + Environment.NewLine);
+                                }
+                            }
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+                }
+                finally
+                {
+                    //SendCommand(Constants.COMMAND_SLEEP);
+                }
+            }
 
             return result;
         }
@@ -294,7 +426,17 @@ namespace FanControl.CommanderPro.Core
 
         #region Private methods
 
-        private Byte[] SendCommand(Byte[] command, Byte[] data = null)
+        private Boolean ConnectToCommanderCore()
+        {
+            return HidSharp.DeviceList.Local.TryGetHidDevice(out device, 0x1b1c, 0x0c1c);
+        }
+
+        private Boolean ConnectToCommanderCoreXt()
+        {
+            return HidSharp.DeviceList.Local.TryGetHidDevice(out device, 0x1b1c, 0x0c2a);
+        }
+
+        private Byte[] SendCommand(Byte[] command, Byte[] data = null, Boolean disconnectIfError = true)
         {
             Byte[] result = new Byte[Constants.RESPONSE_SIZE];
 
@@ -329,6 +471,11 @@ namespace FanControl.CommanderPro.Core
             catch (Exception exception)
             {
                 System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+
+                if (disconnectIfError)
+                {
+                    Disconnect();
+                }
             }
 
             return result;

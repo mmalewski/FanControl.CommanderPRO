@@ -24,7 +24,14 @@ namespace FanControl.CommanderPro
 
                         break;
                     case DeviceType.Core:
-                        result = $"Sensor {Channel + 1}";
+                        if (Channel == 0)
+                        {
+                            result = $"AIO Liquid Temperature";
+                        }
+                        else
+                        {
+                            result = $"Sensor {Channel}";
+                        }
 
                         break;
                 }

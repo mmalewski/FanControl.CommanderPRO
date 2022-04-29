@@ -36,10 +36,6 @@ namespace FanControl.CommanderPro
                 foreach (Int32 channel in CommanderPro.GetFanChannels())
                 {
                     _fanSensors.Add(new FanSensor { CommanderInstance = CommanderPro, Channel = channel });
-                }
-
-                foreach (Int32 channel in CommanderPro.GetFanChannels())
-                {
                     _controlSensors.Add(new ControlSensor { CommanderInstance = CommanderPro, Channel = channel });
                 }
 

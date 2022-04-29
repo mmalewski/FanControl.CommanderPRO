@@ -28,13 +28,22 @@ namespace ConsoleApp1
                 {
                     Console.WriteLine($"Firmware v{firmware}");
 
-                    List<Int32> channels = commander.GetFanChannels();
+                    List<Int32> fanChannels = commander.GetFanChannels();
 
-                    foreach (Int32 channel in channels)
+                    foreach (Int32 channel in fanChannels)
                     {
                         Int32 speed = commander.GetFanSpeed(channel);
 
                         Console.WriteLine($"\tFan on channel {channel} speed: {speed}");
+                    }
+
+                    List<Int32> temperatureChannels = commander.GetTemperatureChannels();
+
+                    foreach (Int32 channel in temperatureChannels)
+                    {
+                        Single temperature = commander.GetTemperature(channel);
+
+                        Console.WriteLine($"\tTemperature probe {channel}: {temperature}");
                     }
                 }
 

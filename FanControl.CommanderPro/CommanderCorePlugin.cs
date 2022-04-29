@@ -51,21 +51,28 @@ namespace FanControl.CommanderPro
 
             List<FanSensor> _fanSensors = new List<FanSensor>();
             List<ControlSensor> _controlSensors = new List<ControlSensor>();
+            List<TemperatureSensor> _temperatureSensors = new List<TemperatureSensor>();
 
             CommanderCore.GetFirmwareVersion();
 
             foreach (Int32 channel in CommanderCore.GetFanChannels())
             {
                 _fanSensors.Add(new FanSensor { CommanderInstance = CommanderCore, Channel = channel });
+
+                //Don't allow the AIO pump to be controlled
+                if (channel == 0) continue;
+
+                _controlSensors.Add(new ControlSensor { CommanderInstance = CommanderCore, Channel = channel });
             }
 
-            //foreach (Int32 channel in CommanderCore.GetFanChannels())
-            //{
-            //    _controlSensors.Add(new ControlSensor { CommanderInstance = CommanderCore, Channel = channel });
-            //}
+            foreach (Int32 channel in CommanderCore.GetTemperatureChannels())
+            {
+                _temperatureSensors.Add(new TemperatureSensor { CommanderInstance = CommanderCore, Channel = channel });
+            }
 
             _container.FanSensors.AddRange(_fanSensors);
-            //_container.ControlSensors.AddRange(_controlSensors);
+            _container.ControlSensors.AddRange(_controlSensors);
+            _container.TempSensors.AddRange(_temperatureSensors);
         }
     }
 }

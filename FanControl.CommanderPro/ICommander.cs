@@ -25,7 +25,9 @@ namespace FanControl.CommanderPro
 
         Int32 GetFanPower(Int32 channel);
 
-        Int32 GetTemperature(Int32 channel);
+        List<Int32> GetTemperatureChannels();
+
+        Single GetTemperature(Int32 channel);
 
         void SetFanPower(Int32 channel, Int32 power);
 

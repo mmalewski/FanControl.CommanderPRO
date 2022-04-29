@@ -291,9 +291,9 @@ namespace FanControl.CommanderPro.Pro
             return result;
         }
 
-        public Int32 GetTemperature(Int32 channel)
+        public Single GetTemperature(Int32 channel)
         {
-            Int32 result = 0;
+            Single result = 0;
 
             if (IsConnected)
             {
