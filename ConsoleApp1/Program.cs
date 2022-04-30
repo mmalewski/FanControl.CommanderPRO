@@ -45,6 +45,8 @@ namespace ConsoleApp1
 
                         Console.WriteLine($"\tTemperature probe {channel}: {temperature}");
                     }
+
+                    //commander.SetFanPower(3, 100);
                 }
 
                 if (Console.KeyAvailable)

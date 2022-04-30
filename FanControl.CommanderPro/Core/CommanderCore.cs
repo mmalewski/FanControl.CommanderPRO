@@ -36,6 +36,32 @@ namespace FanControl.CommanderPro.Core
 
         #endregion
 
+        #region Constructor
+
+        public CommanderCore()
+        {
+            try
+            {
+                if (!String.IsNullOrWhiteSpace(TraceLogFileName) && System.IO.File.Exists(TraceLogFileName))
+                {
+                    System.IO.File.Delete(TraceLogFileName);
+                }
+
+                if (!String.IsNullOrWhiteSpace(ErrorLogFileName) && System.IO.File.Exists(ErrorLogFileName))
+                {
+                    System.IO.File.Delete(ErrorLogFileName);
+                }
+            }
+            catch (Exception exception)
+            {
+
+            }
+
+            HidSharp.DeviceList.Local.Changed += LocalDevices_Changed;
+        }
+
+        #endregion
+
         #region Public methods
 
         public void Connect()
@@ -124,7 +150,11 @@ namespace FanControl.CommanderPro.Core
 
             stream.Dispose();
             stream = null;
-            device = null;
+
+            if (device != null)
+            {
+                device = null;
+            }
 
             IsConnected = false;
         }
@@ -207,6 +237,8 @@ namespace FanControl.CommanderPro.Core
 
                     if (ChecksumMatches(response, Constants.DATA_TYPE_SW_CONNECTED))
                     {
+                        System.IO.File.AppendAllText(TraceLogFileName, $"\tFan channel data {BitConverter.ToString(response)}" + Environment.NewLine);
+
                         Int32 totalDevices = response[6];
 
                         for (Int32 i = 0; i < totalDevices; i++)
@@ -304,7 +336,74 @@ namespace FanControl.CommanderPro.Core
 
         public void SetFanPower(Int32 channel, Int32 power)
         {
+            if (!IsConnected)
+            {
+                Connect();
+            }
 
+            if (IsConnected)
+            {
+                try
+                {
+                    SendCommand(Constants.COMMAND_RESET);
+                    //SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_HW_SPEED_MODE);
+                    SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_HW_FIXED_PERCENT);
+                    Byte[] response = SendCommand(Constants.COMMAND_READ);
+
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_HW_FIXED_PERCENT))
+                    {
+
+                    }
+
+                    if (ChecksumMatches(response, Constants.DATA_TYPE_HW_SPEED_MODE))
+                    {
+                        Byte[] data = new Byte[response[6] + 1];
+
+                        for (Int32 i = 0; i < data.Length; i++)
+                        {
+                            data[i] = response[7 + i];
+                        }
+
+                        SendData(Constants.MODE_HW_SPEED_MODE, Constants.DATA_TYPE_HW_SPEED_MODE, data);
+
+                        SendCommand(Constants.COMMAND_SET_MODE, Constants.MODE_HW_FIXED_PERCENT);
+                        response = SendCommand(Constants.COMMAND_READ);
+
+                        if (ChecksumMatches(response, Constants.DATA_TYPE_HW_FIXED_PERCENT))
+                        {
+                            data = new Byte[response[6] * 2 + 1];
+
+                            for (Int32 i = 0; i < data.Length; i++)
+                            {
+                                data[i] = response[7 + i];
+                            }
+
+                            SendData(Constants.MODE_HW_FIXED_PERCENT, Constants.DATA_TYPE_HW_FIXED_PERCENT, data);
+
+                            Byte[] powerData = BitConverter.GetBytes(power);
+
+                            data[channel * 2 + 1] = powerData[0];
+                            data[channel * 2 + 2] = powerData[1];
+
+                            SendData(Constants.MODE_HW_FIXED_PERCENT, Constants.DATA_TYPE_HW_FIXED_PERCENT, data);
+
+                            //duty_le = int.to_bytes(clamp(duty, 0, 100), length = 2, byteorder = "little", signed = False)
+                            //for chan in channels:
+                            //    i = chan * 2 + 1
+                            //    data[i: i + 2] = duty_le  # Update the device speed
+                            //self._write_data(_MODE_HW_FIXED_PERCENT, _DATA_TYPE_HW_FIXED_PERCENT, data)
+                        }
+                    }
+                }
+                catch (Exception exception)
+                {
+                    System.IO.File.AppendAllText(ErrorLogFileName, exception.ToString() + Environment.NewLine);
+                }
+                finally
+                {
+                    //SendCommand(Constants.COMMAND_SLEEP);
+                }
+            }
         }
 
         public List<Int32> GetTemperatureChannels()
@@ -481,6 +580,24 @@ namespace FanControl.CommanderPro.Core
             return result;
         }
 
+        private void SendData(Byte[] mode, Byte[] checksum, Byte[] data)
+        {
+            SendCommand(Constants.COMMAND_RESET);
+            Byte[] response = SendCommand(Constants.COMMAND_SET_MODE, mode);
+
+            if (ChecksumMatches(response, checksum))
+            {
+                List<Byte> payload = new List<Byte>();
+
+                payload.AddRange(BitConverter.GetBytes(data.Length + 2));
+                payload.AddRange(new Byte[] { 0x00, 0x00 });
+                payload.AddRange(checksum);
+                payload.AddRange(data);
+
+                SendCommand(Constants.COMMAND_WRITE, payload.ToArray());
+            }
+        }
+
         private Boolean ChecksumMatches(Byte[] data, Byte[] checksum, Int32 offset = 4)
         {
             Boolean result = true;
@@ -504,6 +621,16 @@ namespace FanControl.CommanderPro.Core
             }
 
             throw new NotImplementedException();
+        }
+
+        private void LocalDevices_Changed(Object sender, HidSharp.DeviceListChangedEventArgs e)
+        {
+            if (!String.IsNullOrWhiteSpace(TraceLogFileName))
+            {
+                System.IO.File.AppendAllText(TraceLogFileName, "Local device list has changed" + Environment.NewLine);
+            }
+
+            Disconnect();
         }
 
         #endregion

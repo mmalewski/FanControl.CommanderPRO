@@ -12,37 +12,26 @@ namespace FanControl.CommanderPro.Core
         public static Byte[] COMMAND_RESET = { 0x05, 0x01, 0x00 };
         public static Byte[] COMMAND_SET_MODE = { 0x0d, 0x00 };
         public static Byte[] COMMAND_READ = { 0x08, 0x00 };
+        public static Byte[] COMMAND_WRITE = { 0x06, 0x00 };
 
         public static Byte[] READ_FIRMWARE_VERSION = { 0x02, 0x13 };
 
         public static Byte[] MODE_CONNECTED = { 0x1a };
         public static Byte[] MODE_GET_SPEEDS = { 0x17 };
         public static Byte[] MODE_GET_TEMPS = { 0x21 };
+        public static Byte[] MODE_HW_SPEED_MODE = { 0x60, 0x6d };
+        public static Byte[] MODE_HW_FIXED_PERCENT = { 0x61, 0x6d };
 
         public static Byte[] DATA_TYPE_FIRMWARE = { 0x02, 0x00 };
-
         public static Byte[] DATA_TYPE_HW_CONNECTED = { 0x08, 0x03 };
         public static Byte[] DATA_TYPE_SW_CONNECTED = { 0x09, 0x00 };
-
         public static Byte[] DATA_TYPE_SPEEDS = { 0x06, 0x00 };
         public static Byte[] DATA_TYPE_TEMPS = { 0x10, 0x00 };
-
-        //public static Object _CMD_WRITE = (0x06, 0x00);
+        public static Byte[] DATA_TYPE_HW_SPEED_MODE = { 0x03, 0x00 };
+        public static Byte[] DATA_TYPE_HW_FIXED_PERCENT = { 0x04, 0x00 };
 
         //public static Object _MODE_LED_COUNT = ValueTuple.Create(0x20);
 
-        //public static Object _MODE_GET_TEMPS = ValueTuple.Create(0x21);
-
-        //public static Object _MODE_HW_SPEED_MODE = (0x60, 0x6d);
-
-        //public static Object _MODE_HW_FIXED_PERCENT = (0x61, 0x6d);
-
         //public static Object _DATA_TYPE_LED_COUNT = (0x0f, 0x00);
-
-        //public static Object _DATA_TYPE_TEMPS = (0x10, 0x00);
-
-        //public static Object _DATA_TYPE_HW_SPEED_MODE = (0x03, 0x00);
-
-        //public static Object _DATA_TYPE_HW_FIXED_PERCENT = (0x04, 0x00);
     }
 }
